@@ -82,7 +82,10 @@ function link(q) { return (window.STATIC_SELF || S.webapp || '') + '?' + q; }
 
 function load(extra) {
   if (PARAMS.approve) return loadApprove();
-  if (PARAMS.cab) return loadCabinet();
+  if (PARAMS.cab && CODE) return loadCabinet();   // без коду телефону — звичайний шлях: екран реєстрації
+  loadPage(extra);
+}
+function loadPage(extra) {
   google.script.run.withSuccessHandler(d => { S = d; render(extra || {}); })
     .withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
     .apiPage(Object.assign({}, PARAMS, { code: CODE }));
@@ -155,7 +158,8 @@ function renderReg() {
     $('chk').disabled = true;
     google.script.run.withSuccessHandler(d => {
       $('chk').disabled = false;
-      if (d.me) { store('mlp_code', pend); store('mlp_pending', null); CODE = pend; S = d; render({}); toast('Телефон зареєстровано: ' + d.me.name); }
+      if (d.me) { store('mlp_code', pend); store('mlp_pending', null); CODE = pend; S = d; toast('Телефон зареєстровано: ' + d.me.name);
+        if (PARAMS.cab && !d.pending && d.perms && d.perms.cabinet) loadCabinet(); else render({}); }
       else $('err').textContent = 'Реєстрацію ще не знайдено. Надішліть форму і спробуйте ще раз за кілька секунд.';
     }).withFailureHandler(e => { $('chk').disabled = false; $('err').textContent = e.message; })
       .apiPage(Object.assign({}, PARAMS, { code: pend }));
@@ -436,7 +440,11 @@ let CAB = null;
 function loadCabinet() {
   $('hdrTitle').textContent = 'кабінет';
   google.script.run.withSuccessHandler(d => { CAB = d; S.webapp = S.webapp || ''; renderCabinet(); })
-    .withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
+    .withFailureHandler(e => {
+      if (/не зареєстровано/.test(e.message)) return loadPage();   // сервер не знає цього телефону — екран реєстрації
+      $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>' +
+        '<a class="btn btn2" style="text-align:center;text-decoration:none" href="' + esc(link('')) + '">На головну</a>';
+    })
     .apiCabinet({ code: CODE });
 }
 function wset(email, op, value) {
