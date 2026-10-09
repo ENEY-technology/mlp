@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>МЛП</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#EEF2F5;color:#1D2B33;font-size:16px;-webkit-text-size-adjust:100%}
+  .hdr{background:#2F4858;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .hdr .who{font-size:13px;opacity:.85;text-align:right}
+  .card{background:#fff;margin:12px;border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .big{font-size:34px;font-weight:700;letter-spacing:.5px;line-height:1.1}
+  .mid{font-size:18px;font-weight:600}
+  .muted{color:#66767F;font-size:14px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:13px;font-weight:600;background:#E7EDF1;margin:6px 6px 0 0}
+  .ok{background:#DFF3E7;color:#17643D}.warn{background:#FFF1D6;color:#8A5A00}.bad{background:#FDE3E1;color:#9B231A}
+  label{display:block;font-size:14px;color:#55656E;margin:14px 0 6px}
+  select,input[type=text],input[type=number],textarea{width:100%;font-size:19px;padding:12px;border:1px solid #C5D0D7;border-radius:10px;background:#fff;color:#1D2B33;font-family:inherit}
+  textarea{font-size:16px;min-height:60px}
+  .num{display:flex;gap:8px}.num input{flex:1;text-align:center;font-size:26px;font-weight:600}
+  .num button{width:58px;font-size:28px;border:1px solid #C5D0D7;background:#F4F7F9;border-radius:10px;color:#1D2B33}
+  .btn{display:block;width:100%;padding:17px;font-size:20px;border:0;border-radius:12px;background:#1F7A4D;color:#fff;font-weight:700;margin-top:18px;font-family:inherit}
+  .btn:disabled{opacity:.5}
+  .btn2{background:#E3EAEF;color:#1D2B33;font-weight:600;font-size:17px;padding:14px;margin-top:10px}
+  .btnr{background:#B3261E}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid .btn{margin-top:0}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  .seg{display:flex;gap:6px}.seg label{flex:1;margin:0}.seg input{display:none}
+  .seg span{display:block;text-align:center;padding:13px 4px;border:1px solid #C5D0D7;border-radius:10px;font-size:17px;font-weight:600;background:#fff}
+  .seg input:checked+span{background:#2F4858;color:#fff;border-color:#2F4858}
+  details{margin:12px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  summary{padding:16px;font-weight:600;font-size:17px;cursor:pointer}
+  .list{padding:0 16px 12px}
+  .li{padding:10px 0;border-top:1px solid #EEF2F5;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .li .r{text-align:right;white-space:nowrap}
+  .x{text-decoration:line-through;opacity:.5}
+  .lnk{color:#1A5FB4;text-decoration:none;font-weight:600}
+  .ic{border:0;background:#E3EAEF;border-radius:8px;padding:6px 10px;font-size:15px;margin-left:4px}
+  .toast{position:fixed;left:12px;right:12px;bottom:16px;padding:16px;border-radius:12px;color:#fff;font-size:17px;font-weight:600;display:none;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .modal{position:fixed;inset:0;background:rgba(20,30,36,.55);display:none;align-items:flex-end;z-index:8}
+  .sheet{background:#EEF2F5;width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding-bottom:20px}
+  .err{color:#9B231A;font-weight:600;margin-top:10px;font-size:16px}
+  .center{text-align:center;padding:40px 16px}
+  .stepbar{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+  .stepbar span{font-size:12px;padding:3px 6px;border-radius:6px;background:#E7EDF1}
+  .stepbar .d{background:#DFF3E7;color:#17643D}.stepbar .n{background:#2F4858;color:#fff}
+</style>
+</head>
+<body>
+<div class="hdr"><div><b>МЛП</b> <span id="hdrTitle" class="muted" style="color:#cfe0ea"></span></div><div class="who" id="who"></div></div>
+<div id="app"><div class="center muted">Завантаження…</div></div>
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbx-JUajnAtVsxaLHDgwRpfzE12g4LUtlf6JnWYAQScAVZ5FCpxzGHSrA5PDESqP80KD/exec';
+window.STATIC_SELF = location.origin + location.pathname;
+const PARAMS = Object.fromEntries(new URLSearchParams(location.search));
+var google = { script: { get run() {
+  let ok = () => {}, fail = () => {};
+  const call = (api, q) => fetch(API + '?api=' + api + '&q=' + encodeURIComponent(JSON.stringify(q)), { credentials: 'omit', redirect: 'follow' })
+    .then(r => r.json()).then(j => j.ok ? ok(j.data) : fail({ message: j.error }))
+    .catch(e => fail({ message: 'Немає зв\'язку з сервером. Перевірте інтернет і спробуйте ще раз.' }));
+  const o = { withSuccessHandler(f) { ok = f; return o; }, withFailureHandler(f) { fail = f; return o; },
+    apiPage(q) { call('page', q); }, apiAct(q) { call('act', q); } };
+  return o;
+} } };
+let S = {};           // дані сторінки
+let CODE = store('mlp_code');
+
+function store(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k) || ''; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }
+  catch (e) { return ''; }
+}
+function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function $(id) { return document.getElementById(id); }
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.style.background = bad ? '#B3261E' : '#1F7A4D'; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', bad ? 6000 : 3500); }
+function closeModal() { $('modal').style.display = 'none'; }
+function openModal(html) { $('sheet').innerHTML = html; $('modal').style.display = 'flex'; }
+function link(q) { return (window.STATIC_SELF || S.webapp || '') + '?' + q; }
+
+function load(extra) {
+  google.script.run.withSuccessHandler(d => { S = d; render(extra || {}); })
+    .withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
+    .apiPage(Object.assign({}, PARAMS, { code: CODE }));
+}
+
+function act(payload, btn, after) {
+  if (btn) { btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Зберігаю…'; }
+  payload.code = CODE;
+  google.script.run.withSuccessHandler(r => {
+    if (btn) { btn.disabled = false; btn.textContent = btn._t; }
+    if (r && r.warn) { confirmBox(r.warn, () => { payload.force = true; act(payload, btn, after); }); return; }
+    closeModal(); toast(r.msg || 'Готово'); if (after) after(r); else load(r);
+  }).withFailureHandler(e => {
+    if (btn) { btn.disabled = false; btn.textContent = btn._t; }
+    const m = String(e.message || e).replace(/^Error:\s*/, '');
+    const box = $('err'); if (box && $('modal').style.display !== 'flex') box.textContent = m;
+    const mb = $('merr'); if (mb && $('modal').style.display === 'flex') mb.textContent = m;
+    toast(m, true);
+  }).apiAct(payload);
+}
+
+function confirmBox(text, yes) {
+  openModal('<div class="card"><div class="mid">' + esc(text) + '</div><div class="grid" style="margin-top:16px">' +
+    '<button class="btn btn2" onclick="closeModal()">Ні</button><button class="btn" id="yesb">Так</button></div></div>');
+  $('yesb').onclick = () => { closeModal(); yes(); };
+}
+
+function numInput(id, val) {
+  return '<div class="num"><button type="button" onclick="bump(\'' + id + '\',-1)">−</button>' +
+    '<input type="number" inputmode="numeric" pattern="[0-9]*" id="' + id + '" value="' + esc(val) + '">' +
+    '<button type="button" onclick="bump(\'' + id + '\',1)">+</button></div>';
+}
+function bump(id, d) { const i = $(id); i.value = Math.max(0, (Number(i.value) || 0) + d); i.dispatchEvent(new Event('input')); }
+function opts(list, sel, ph) { return (ph ? '<option value="">' + esc(ph) + '</option>' : '') + list.map(x => '<option' + (String(x) === String(sel) ? ' selected' : '') + '>' + esc(x) + '</option>').join(''); }
+function tarePicker(id, types) {
+  return '<div class="row"><select id="' + id + 't" style="flex:0 0 38%">' + opts(types) + '</select>' +
+    '<input type="number" inputmode="numeric" id="' + id + 'n" placeholder="номер"></div>';
+}
+function tareVal(id) { const n = $(id + 'n').value; return n ? $(id + 't').value + '-' + n : ''; }
+
+// =============================================================== RENDER
+function render(extra) {
+  const me = S.me;
+  $('who').innerHTML = me ? esc(me.name) + '<br>' + esc(me.role) + (me.unknown ? ' · ⚠ на перевірці' : '') : '';
+  if (S.error) { $('app').innerHTML = '<div class="card err">' + esc(S.error) + '</div>'; return; }
+  if (!me) return renderReg();
+  if (S.poster) return renderPoster();
+  if (S.tare && !S.batch) { $('hdrTitle').textContent = S.tare.code; return renderNew(); }
+  if (S.batch) { $('hdrTitle').textContent = S.tare ? S.tare.code : ''; return renderBatch(extra); }
+  $('app').innerHTML = '<div class="card center">Відскануйте QR на тарі або на плакаті дільниці.</div>';
+}
+
+function renderReg() {
+  let pend = store('mlp_pending');
+  if (!pend) { pend = Math.random().toString(36).slice(2, 7).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase(); store('mlp_pending', pend); }
+  const url = (S.reg || '').replace('CODE_PLACEHOLDER', encodeURIComponent(pend));
+  $('app').innerHTML = '<div class="card"><div class="mid">Цей телефон ще не зареєстровано</div>' +
+    '<p class="muted">Один раз: відкрийте форму, увійдіть у свій Google-акаунт (той, з якого заповнюєте вечірній звіт), впишіть прізвище й ім\'я і надішліть. Потім поверніться сюди.</p>' +
+    '<p class="muted">Код телефону: <b>' + esc(pend) + '</b></p>' +
+    '<a class="btn" style="text-align:center;text-decoration:none" target="_blank" href="' + esc(url) + '">1. Відкрити форму реєстрації</a>' +
+    '<button class="btn btn2" id="chk">2. Я зареєструвався</button><div class="err" id="err"></div></div>';
+  $('chk').onclick = () => {
+    $('chk').disabled = true;
+    google.script.run.withSuccessHandler(d => {
+      $('chk').disabled = false;
+      if (d.me) { store('mlp_code', pend); store('mlp_pending', null); CODE = pend; S = d; render({}); toast('Телефон зареєстровано: ' + d.me.name); }
+      else $('err').textContent = 'Реєстрацію ще не знайдено. Надішліть форму і спробуйте ще раз за кілька секунд.';
+    }).withFailureHandler(e => { $('chk').disabled = false; $('err').textContent = e.message; })
+      .apiPage(Object.assign({}, PARAMS, { code: pend }));
+  };
+}
+
+function renderPoster() {
+  const site = (S.dict.sites.find(s => s.code === S.poster) || { name: S.poster }).name;
+  $('hdrTitle').textContent = S.poster;
+  $('app').innerHTML = '<div class="card"><div class="mid">Робота без партії</div><div class="muted">' + esc(site) + '</div>' +
+    '<label>Вид роботи</label><select id="wk">' + opts(S.dict.works.map(w => w.name), '', '— оберіть —') + '</select>' +
+    '<div id="wkx"></div><label>Коментар</label><textarea id="cm"></textarea>' +
+    '<button class="btn" id="go">Записати</button><div class="err" id="err"></div></div>';
+  $('wk').onchange = () => {
+    const w = S.dict.works.find(x => x.name === $('wk').value);
+    $('wkx').innerHTML = !w ? '' : '<label>' + (w.unit === 'год' ? 'Години' : 'Кількість, шт') + '</label>' +
+      (w.unit === 'год' ? '<input type="text" inputmode="decimal" id="val" placeholder="напр. 1,5">' : numInput('val', '')) +
+      (w.typ ? '<label>Типорозмір</label><select id="typ">' + opts(S.dict.typ, '', '—') + '</select>' : '');
+  };
+  $('go').onclick = () => act({ action: 'noBatch', work: $('wk').value, value: $('val') ? $('val').value : '', typ: $('typ') ? $('typ').value : '',
+    comment: $('cm').value, site: S.poster }, $('go'), () => { $('wk').value = ''; $('wkx').innerHTML = ''; $('cm').value = ''; });
+}
+
+function renderNew() {
+  const p = S.perms; const t = S.tare;
+  if (!p.newBatch) { $('app').innerHTML = '<div class="card"><div class="big">' + esc(t.code) + '</div><div class="pill ok">вільна</div></div>'; return; }
+  const def = t.type === 'ТЧ' ? 'MT' : '';
+  $('app').innerHTML = '<div class="card"><div class="muted">Тара</div><div class="big">' + esc(t.code) + '</div><span class="pill ok">вільна</span>' +
+    '<span class="pill">' + (t.loc === 'Ж' ? 'Жуляни' : 'Печерськ') + '</span></div>' +
+    '<div class="card"><div class="mid">Нова партія</div>' +
+    '<label>Що кладете</label><div class="seg">' + ['ST', 'RT', 'MT'].map(s => '<label><input type="radio" name="st" value="' + s + '"' + (s === def ? ' checked' : '') + '><span>' +
+      ({ ST: 'Статори', RT: 'Ротори', MT: 'Двигуни' })[s] + '</span></label>').join('') + '</div>' +
+    '<div id="nf"></div><div class="err" id="err"></div></div>';
+  document.querySelectorAll('input[name=st]').forEach(r => r.onchange = drawNew);
+  drawNew();
+}
+function drawNew() {
+  const r = document.querySelector('input[name=st]:checked'); const st = r ? r.value : '';
+  if (!st) { $('nf').innerHTML = ''; return; }
+  const qty = st === 'ST' ? 160 : st === 'RT' ? 200 : (S.tare.type === 'ТЧ' ? 1000 : 160);
+  let h = '<div class="row"><div><label>Типорозмір</label><select id="typ">' + opts(S.dict.typ, '3115') + '</select></div>' +
+    (st !== 'RT' ? '<div><label>KV</label><select id="kv">' + opts(S.dict.kv, '', '—') + '</select></div>' : '') + '</div>';
+  if (st === 'MT') {
+    const pair = (id, n) => '<label>' + n + '</label><div class="seg"><label><input type="radio" name="' + id + '" value="власний"><span>Власні</span></label>' +
+      '<label><input type="radio" name="' + id + '" value="покупний"><span>Покупні</span></label></div>' +
+      '<div id="' + id + 'Pur" style="display:none"><input type="text" id="' + id + 'Lot" placeholder="партія постачальника (якщо є)" style="margin-top:8px">' +
+      '<label>Скільки покупних ' + (id === 'stator' ? 'статорів' : 'роторів') + '</label>' + numInput(id + 'Qty', qty) + '</div>';
+    h += pair('stator', 'Статори') + pair('rotor', 'Ротори');
+  } else h += '<label>Партія постачальника (якщо є)</label><input type="text" id="lot">';
+  h += '<label>' + (st === 'MT' ? 'Кількість пар на старті' : 'Кількість на старті') + '</label>' + numInput('qty', qty) +
+    '<button class="btn" id="go">Створити партію</button>' +
+    (st === 'MT' ? '<p class="muted">Власні статори / ротори після створення додайте кнопкою «Видати на збирання» на сторінці їхньої партії ST / RT.</p>' : '');
+  $('nf').innerHTML = h;
+  ['stator', 'rotor'].forEach(id => document.querySelectorAll('input[name=' + id + ']').forEach(x => x.onchange = () => {
+    $(id + 'Pur').style.display = x.value === 'покупний' && x.checked ? 'block' : 'none'; }));
+  $('go').onclick = () => {
+    const g = n => { const x = document.querySelector('input[name=' + n + ']:checked'); return x ? x.value : ''; };
+    act({ action: 'newBatch', tare: S.tare.code, stream: st, typ: $('typ').value, kv: $('kv') ? $('kv').value : '', qty: $('qty').value,
+      lot: $('lot') ? $('lot').value : '', stator: g('stator'), rotor: g('rotor'),
+      statorLot: $('statorLot') ? $('statorLot').value : '', rotorLot: $('rotorLot') ? $('rotorLot').value : '',
+      statorQty: $('statorQty') ? $('statorQty').value : '', rotorQty: $('rotorQty') ? $('rotorQty').value : '' }, $('go'));
+  };
+}
+
+function statusPill(s) {
+  const cls = { 'в роботі': 'warn', 'готово': 'ok', 'видано частково': 'ok', 'закрито': '', 'анульовано': 'bad', 'поза маршрутом': 'warn' }[s] || '';
+  return '<span class="pill ' + cls + '">' + esc(s) + '</span>';
+}
+
+function renderBatch(extra) {
+  const b = S.batch, i = b.info, p = S.perms;
+  const stream = i['Потік'];
+  const avail = b.route.filter(s => s.avail > 0);
+  const pre = (extra && extra.suggestStep) || (avail[0] && avail[0].code) || '';
+  let h = '<div class="card"><div class="muted">' + ({ ST: 'Статори', RT: 'Ротори', MT: 'Двигуни' })[stream] + (S.tare ? ' · тара ' + esc(S.tare.code) : ' · ⚠ без тари') + '</div>' +
+    '<div class="big">' + esc(i['Номер']) + '</div>' +
+    '<span class="pill">' + esc(i['Типорозмір']) + '</span>' + (i['KV'] ? '<span class="pill">KV ' + esc(i['KV']) + '</span>' : '') +
+    (i['Варіант'] ? '<span class="pill">' + esc(i['Варіант']) + '</span>' : '') + statusPill(b.status) +
+    (i['Змішана'] === 'так' ? '<span class="pill warn">змішана</span>' : '') + (i['Призначення'] ? '<span class="pill warn">' + esc(i['Призначення']) + '</span>' : '') +
+    '<div class="muted" style="margin-top:10px">Є зараз: <b>' + b.remaining + ' шт</b> · брак: ' + b.scrapAll + (b.issued ? ' · видано: ' + b.issued : '') + '</div>' +
+    '<div class="stepbar">' + b.route.map(s => '<span class="' + (s.code === pre ? 'n' : (s.good + s.scrap > 0 && s.avail === 0 ? 'd' : '')) + '">' + esc(s.code) + '</span>').join('') + '</div></div>';
+  if (b.comp) {
+    const row = (n, c) => '<div class="li"><div><b>' + n + '</b><br><span class="muted">прийшло ' + c.in + (c.pur && c.own + c.xfer ? ' (власні ' + (c.own + c.xfer) + ', покупні ' + c.pur + ')' : c.pur ? ' покупних' : '') +
+      ' · у двигунах ' + c.used + ' · брак ' + c.scrap + (c.ret ? ' · повернуто ' + c.ret : '') + (c.waitF4 ? ' · чекають F4п ' + c.waitF4 : '') + '</span></div>' +
+      '<div class="r"><span class="pill ' + (c.left ? 'warn' : '') + '">залишок ' + c.left + '</span></div></div>';
+    h += '<div class="card" style="padding-top:8px"><div class="list" style="padding:0">' + row('Статори', b.comp.S) + row('Ротори', b.comp.R) + '</div></div>';
+  }
+
+  if (b.status === 'анульовано' || b.status === 'закрито') {
+    h += '<div class="card muted">Партія ' + esc(b.status) + '. Записи неможливі.</div>';
+  } else if (i['Призначення']) {
+    h += '<div class="card muted">Партія поза маршрутом (' + esc(i['Призначення']) + '): кроки не записуються.</div>';
+  } else if (p.step && avail.length) {
+    h += '<div class="card"><div class="mid">Додати крок</div>' +
+      '<label>Крок</label><select id="stp">' + b.route.map(s => '<option value="' + esc(s.code) + '"' + (s.avail ? '' : ' disabled') + (s.code === pre ? ' selected' : '') + '>' +
+        esc(s.code + ' · ' + s.name) + (s.avail ? ' — доступно ' + s.avail : '') + '</option>').join('') + '</select>' +
+      '<label id="goodLbl">Годних</label>' + numInput('good', '') +
+      '<div id="scrapWrap"><label>Брак</label>' + numInput('scrap', 0) + '</div>' +
+      '<div id="rsn" style="display:none"><label>Причина браку</label><select id="reason">' + opts(S.dict.reasons, '', '— оберіть —') + '</select></div>' +
+      '<div id="xf"></div>' +
+      '<label>Коментар (необов\'язково)</label><input type="text" id="cm">' +
+      '<button class="btn" id="go">Записати</button><div class="err" id="err"></div></div>';
+  } else if (b.status === 'готово' || b.status === 'видано частково') {
+    h += '<div class="card"><div class="mid">✓ Усі кроки пройдено</div><div class="muted">' +
+      (stream === 'MT' ? 'Партію двигунів завершено.' : 'Можна видавати на збирання.') + '</div></div>';
+  }
+
+  // дії
+  const acts = [];
+  if (p.issue && (stream === 'ST' || stream === 'RT') && (b.status === 'готово' || b.status === 'видано частково')) acts.push(['issue', '➜ Видати на збирання', '']);
+  if (p.move && b.status !== 'закрито' && b.status !== 'анульовано') acts.push(['move', S.tare ? '⇄ Перекласти' : '⇄ Прив\'язати до тари', '']);
+  if (b.comp && p.returnLeft && (b.comp.S.left > 0 || b.comp.R.left > 0)) acts.push(['returnLeft', '↩ Повернути залишок', '']);
+  if (b.comp && p.addPurchased && b.status === 'в роботі') acts.push(['addPurchased', '+ Додати покупні', '']);
+  if (p.separate && b.remaining > 0 && b.status !== 'анульовано') acts.push(['separate', '✂ Відокремити', '']);
+  if (p.free && S.tare) acts.push(['free', 'Звільнити тару', '']);
+  if (p.annul && b.status !== 'анульовано' && b.status !== 'закрито') acts.push(['annul', '✖ Анулювати', 'btnr']);
+  if (acts.length) h += '<div class="card"><div class="grid">' + acts.map(a => '<button class="btn btn2 ' + a[2] + '" onclick="openAct(\'' + a[0] + '\')">' + a[1] + '</button>').join('') + '</div></div>';
+
+  // маршрут
+  h += '<details><summary>Маршрут і кількості</summary><div class="list">' + b.route.map(s =>
+    '<div class="li"><div>' + esc(s.code + ' · ' + s.name) + '</div><div class="r">' + (s.good || s.scrap ? s.good + ' / <span style="color:#9B231A">' + s.scrap + '</span>' : '<span class="muted">—</span>') +
+    (s.avail ? '<br><span class="muted">доступно ' + s.avail + '</span>' : '') + '</div></div>').join('') + '</div></details>';
+
+  // історія
+  h += '<details' + (extra && extra.openHist ? ' open' : '') + '><summary>Історія (' + b.history.length + ')</summary><div class="list">' + b.history.map(x => {
+    let what = esc(x.type);
+    if (x.type === 'крок') what = '<b>' + esc(x.step) + '</b> · ' + x.good + ' / ' + x.scrap + (x.reason ? ' · ' + esc(x.reason) : '');
+    if (x.type === 'нова партія') what = 'нова партія · ' + x.qty + ' шт';
+    if (x.type === 'перекладання') what = 'перекладання ' + esc(x.from || '—') + ' → ' + esc(x.to);
+    if (x.type === 'видача') what = x.batch === i['Номер'] ? 'видано ' + x.qty + ' → ' + bl(x.target) : 'отримано ' + x.qty + ' з ' + bl(x.batch);
+    if (x.type === 'покупні') what = '+ ' + x.qty + ' покупних ' + (x.comp === 'ротор' ? 'роторів' : 'статорів');
+    if (x.type === 'залишок') what = x.batch === i['Номер'] ? 'повернуто ' + x.qty + ' ' + esc(x.comp) + ' → ' + (x.target ? bl(x.target) : 'склад') : 'отримано ' + x.qty + ' ' + esc(x.comp) + ' з ' + bl(x.batch);
+    if (x.type === 'крок' && x.step === 'F1' && b.comp) what = '<b>F1</b> · зібрано ' + x.good + (x.x1 ? ' · брак статорів ' + x.x1 : '') + (x.x2 ? ' · брак роторів ' + x.x2 : '') + (x.reason ? ' · ' + esc(x.reason) : '');
+    if (x.type === 'відокремлення') what = x.batch === i['Номер'] ? 'відокремлено ' + x.qty + ' → ' + bl(x.target) : 'додано ' + x.qty + ' з ' + bl(x.batch);
+    const btns = (x.canCancel ? '<button class="ic" onclick="cancelRec(\'' + x.id + '\')">✖</button>' : '') +
+      (x.canCorrect ? '<button class="ic" onclick="openCorrect(\'' + x.id + '\')">✎</button>' : '');
+    return '<div class="li"><div class="' + (x.cancelled ? 'x' : '') + '">' + what + (x.corrected ? ' <span class="pill warn">виправлено</span>' : '') +
+      '<br><span class="muted">' + esc(x.who) + (x.comment ? ' · ' + esc(x.comment) : '') + '</span></div><div class="r muted">' + esc(x.time) + btns + '</div></div>';
+  }).join('') + '</div></details>';
+
+  // зв'язки
+  const rel = [];
+  if (i['Батьківська']) rel.push('Відокремлена з ' + bl(i['Батьківська']) + ' (історія до відокремлення — там)');
+  if (i['Статор']) rel.push('Статори: ' + esc(i['Статор']));
+  if (i['Ротор']) rel.push('Ротори: ' + esc(i['Ротор']));
+  if (i['Партія постачальника']) rel.push('Партія постачальника: ' + esc(i['Партія постачальника']));
+  b.sources.forEach(s => rel.push(s.kind === 'покупні' ? 'Додано ' + s.qty + ' шт: ' + esc(s.batch) : (s.kind === 'видача' ? 'Взято ' : s.kind === 'залишок' ? 'Залишок ' : 'Додано ') + s.qty + ' шт з ' + bl(s.batch)));
+  b.issues.forEach(s => rel.push(s.kind === 'залишок' ? 'Повернуто ' + s.qty + ' ' + esc(s.comp) + ' → ' + (s.batch === 'склад' ? 'склад' : bl(s.batch)) : 'Видано ' + s.qty + ' шт у ' + bl(s.batch)));
+  b.children.forEach(s => rel.push('Відокремлено ' + s.qty + ' шт → ' + bl(s.batch)));
+  if (rel.length) h += '<details><summary>Зв\'язки</summary><div class="list">' + rel.map(r => '<div class="li"><div>' + r + '</div></div>').join('') + '</div></details>';
+
+  $('app').innerHTML = h + '<div style="height:40px"></div>';
+  if ($('stp')) { $('stp').onchange = stepChanged; stepChanged(); $('scrap').oninput = () => $('rsn').style.display = Number($('scrap').value) > 0 ? 'block' : 'none'; $('go').onclick = submitStep; }
+}
+function bl(no) { return '<a class="lnk" href="' + esc(link('b=' + encodeURIComponent(no))) + '">' + esc(no) + '</a>'; }
+
+function stepChanged() {
+  const s = S.batch.route.find(x => x.code === $('stp').value);
+  $('good').value = s ? s.avail : ''; $('scrap').value = 0; $('rsn').style.display = 'none';
+  $('scrapWrap').style.display = (s && s.code === 'F1' && S.batch.comp) ? 'none' : 'block';
+  $('goodLbl').textContent = (s && s.code === 'F1' && S.batch.comp) ? 'Зібрано двигунів (годних)' : 'Годних';
+  let x = '';
+  if (s && s.code === 'F1' && S.batch.comp) {
+    x = '<label>Брак статорів</label>' + numInput('x1', 0) + '<label>Брак роторів</label>' + numInput('x2', 0) +
+      '<p class="muted">Зібрано — годні двигуни. Якщо бракований лише статор або лише ротор — пишіть брак тільки цієї деталі: друга лишиться в залишку.</p>';
+  }
+  if (s && s.extra === 'split') x = '<div class="row"><div><label>На балансування</label>' + numInput('x1', s.avail) + '</div></div><label>Одразу на R7</label>' + numInput('x2', 0);
+  if (s && s.extra === 'kv') x = '<label>KV — під який гравіюють</label><select id="kvs">' + opts(S.dict.kv, S.batch.info['KV'], '— оберіть —') + '</select>';
+  if (s && s.extra === 'pack') x = '<div class="row"><div><label>Ящиків</label><input type="number" inputmode="numeric" id="x1"></div><div><label>Ложементів</label><input type="number" inputmode="numeric" id="x2"></div></div>';
+  if (s && s.extra.indexOf('check:') === 0) x = '<label style="display:flex;gap:10px;align-items:center;font-size:18px;color:#1D2B33"><input type="checkbox" id="chk" checked style="width:26px;height:26px"> ' + esc(s.extra.slice(6)) + '</label>';
+  $('xf').innerHTML = x;
+  if (s && s.code === 'F1' && S.batch.comp) {
+    const upd = () => $('rsn').style.display = (Number($('x1').value) || 0) + (Number($('x2').value) || 0) > 0 ? 'block' : 'none';
+    $('x1').oninput = upd; $('x2').oninput = upd;
+  }
+  if (s && s.extra === 'split') $('good').oninput = () => { $('x1').value = Math.max(0, (Number($('good').value) || 0) - (Number($('x2').value) || 0)); };
+}
+function submitStep() {
+  const v = id => $(id) ? $(id).value : '';
+  act({ action: 'step', batch: S.batch.info['Номер'], step: $('stp').value, good: v('good'), scrap: v('scrap'), reason: v('reason'),
+    x1: v('x1'), x2: v('x2'), kv: v('kvs'), check: $('chk') ? $('chk').checked : false, comment: v('cm') }, $('go'));
+}
+
+// =============================================================== ACTIONS
+function openAct(a) {
+  const no = S.batch.info['Номер'];
+  const head = t => '<div class="card"><div class="mid">' + t + '</div><div class="muted">' + esc(no) + ' · є ' + S.batch.remaining + ' шт</div>';
+  const foot = '<div class="err" id="merr"></div><div class="grid" style="margin-top:6px"><button class="btn btn2" onclick="closeModal()">Скасувати</button><button class="btn" id="mgo">Підтвердити</button></div></div>';
+  if (a === 'move') {
+    openModal(head(S.tare ? 'Перекласти в іншу тару' : 'Прив\'язати до тари') + '<label>Куди (вільна тара)</label>' + tarePicker('tg', ['ПД', 'КР', 'ТЧ', 'СК']) +
+      '<label>Коментар</label><input type="text" id="mcm">' + foot);
+    $('mgo').onclick = () => act({ action: 'move', batch: no, target: tareVal('tg'), comment: $('mcm').value }, $('mgo'),
+      r => { PARAMS.t = tareVal('tg'); delete PARAMS.b; load({ suggestStep: r.suggestStep }); if (r.suggestStep) toast(r.msg + '. Не забудьте записати ' + r.suggestStep); });
+  }
+  if (a === 'issue') {
+    openModal(head('Видати на збирання') + '<label>Тара партії двигунів (MT)</label>' + tarePicker('tg', ['КР', 'ТЧ']) +
+      '<label>Кількість, шт</label>' + numInput('mq', S.batch.remaining) + '<label>Коментар</label><input type="text" id="mcm">' + foot);
+    $('mgo').onclick = () => act({ action: 'issue', batch: no, target: tareVal('tg'), qty: $('mq').value, comment: $('mcm').value }, $('mgo'));
+  }
+  if (a === 'separate') {
+    openModal(head('Відокремити частину') + '<p class="muted">Вільна тара → нова партія. Зайнята тара → додати до партії в ній (стане «змішаною»).</p>' +
+      '<label>Куди</label>' + tarePicker('tg', ['КР', 'СК', 'ПД', 'ТЧ']) + '<label>Кількість, шт</label>' + numInput('mq', '') +
+      '<label>Якщо нова партія — призначення</label><select id="mp">' + opts(S.dict.purposes, '', 'звичайна (за маршрутом)') + '</select>' +
+      '<label>Причина / коментар</label><input type="text" id="mcm">' + foot);
+    $('mgo').onclick = () => act({ action: 'separate', batch: no, target: tareVal('tg'), qty: $('mq').value, purpose: $('mp').value, comment: $('mcm').value }, $('mgo'));
+  }
+  if (a === 'free') {
+    openModal(head('Звільнити тару ' + esc(S.tare.code)) + '<label>Причина</label><select id="mr">' +
+      opts(['партію фізично переклали без запису', 'тара пошкоджена', 'інше']) + '</select><label>Коментар</label><input type="text" id="mcm">' + foot);
+    $('mgo').onclick = () => act({ action: 'free', tare: S.tare.code, reason: $('mr').value, comment: $('mcm').value }, $('mgo'));
+  }
+  if (a === 'returnLeft') {
+    const c = S.batch.comp; const def = c.S.left ? 'статор' : 'ротор';
+    openModal(head('Повернути залишок') +
+      '<label>Що</label><div class="seg">' + [['статор', c.S.left], ['ротор', c.R.left]].map(x => '<label><input type="radio" name="cmp" value="' + x[0] + '"' +
+        (x[0] === def ? ' checked' : '') + (x[1] ? '' : ' disabled') + '><span>' + (x[0] === 'статор' ? 'Статори' : 'Ротори') + ' · ' + x[1] + '</span></label>').join('') + '</div>' +
+      '<label>Кількість</label>' + numInput('mq', def === 'статор' ? c.S.left : c.R.left) +
+      '<label>Куди</label><div class="seg"><label><input type="radio" name="dst" value="tare" checked><span>У тару</span></label>' +
+      '<label><input type="radio" name="dst" value="склад"><span>На склад (покупні)</span></label></div>' +
+      '<div id="dstTare"><p class="muted">Вільна тара — нова партія залишків. Тара з партією залишків або з іншою партією ST / RT / MT — деталі додадуться туди.</p>' +
+      tarePicker('tg', ['СК', 'КР', 'ТЧ']) + '</div><label>Коментар</label><input type="text" id="mcm">' + foot);
+    document.querySelectorAll('input[name=cmp]').forEach(r => r.onchange = () => { $('mq').value = r.value === 'статор' ? c.S.left : c.R.left; });
+    document.querySelectorAll('input[name=dst]').forEach(r => r.onchange = () => { $('dstTare').style.display = r.value === 'tare' && r.checked ? 'block' : 'none'; });
+    $('mgo').onclick = () => {
+      const g = n => { const x = document.querySelector('input[name=' + n + ']:checked'); return x ? x.value : ''; };
+      act({ action: 'returnLeft', batch: no, comp: g('cmp'), qty: $('mq').value, dest: g('dst'), target: g('dst') === 'tare' ? tareVal('tg') : '', comment: $('mcm').value }, $('mgo'));
+    };
+  }
+  if (a === 'addPurchased') {
+    openModal(head('Додати покупні деталі') + '<label>Що</label><div class="seg"><label><input type="radio" name="cmp" value="статор" checked><span>Статори</span></label>' +
+      '<label><input type="radio" name="cmp" value="ротор"><span>Ротори</span></label></div>' +
+      '<label>Кількість</label>' + numInput('mq', 1) + '<label>Партія постачальника (якщо є)</label><input type="text" id="mlot">' + foot);
+    $('mgo').onclick = () => {
+      const x = document.querySelector('input[name=cmp]:checked');
+      act({ action: 'addPurchased', batch: no, comp: x ? x.value : '', qty: $('mq').value, lot: $('mlot').value }, $('mgo'));
+    };
+  }
+  if (a === 'annul') {
+    openModal(head('Анулювати партію') + '<p class="muted">Тільки якщо партію створено помилково і кроків ще немає.</p><label>Причина</label><input type="text" id="mcm">' + foot);
+    $('mgo').onclick = () => act({ action: 'annul', batch: no, comment: $('mcm').value }, $('mgo'));
+  }
+}
+function cancelRec(id) { confirmBox('Скасувати свій запис ' + id + '?', () => act({ action: 'cancelOwn', ref: id }, null, () => load({ openHist: 1 }))); }
+function openCorrect(id) {
+  const x = S.batch.history.find(h => h.id === id);
+  openModal('<div class="card"><div class="mid">Виправити запис ' + esc(x.step) + '</div><div class="muted">' + esc(x.who) + ' · ' + esc(x.time) + ' · було ' + x.good + ' / ' + x.scrap + '</div>' +
+    '<label>' + (x.step === 'F1' && S.batch.comp ? 'Зібрано двигунів' : 'Годних') + '</label>' + numInput('cg', x.good) +
+    (x.step === 'F1' && S.batch.comp ? '<label>Брак статорів</label>' + numInput('cx1', x.x1) + '<label>Брак роторів</label>' + numInput('cx2', x.x2) : '<label>Брак</label>' + numInput('cs', x.scrap)) +
+    '<label>Причина браку</label><select id="cr">' + opts(S.dict.reasons, x.reason, '—') + '</select>' +
+    '<label>Причина виправлення (обов\'язково)</label><input type="text" id="mcm">' +
+    '<div class="err" id="merr"></div><div class="grid" style="margin-top:6px"><button class="btn btn2 btnr" id="cdel">Скасувати запис</button><button class="btn" id="mgo">Зберегти</button></div>' +
+    '<button class="btn btn2" onclick="closeModal()">Закрити</button></div>');
+  $('mgo').onclick = () => act({ action: 'correct', ref: id, good: $('cg').value, scrap: $('cs') ? $('cs').value : '', x1: $('cx1') ? $('cx1').value : '',
+    x2: $('cx2') ? $('cx2').value : '', reason: $('cr').value, comment: $('mcm').value }, $('mgo'), () => load({ openHist: 1 }));
+  $('cdel').onclick = () => act({ action: 'correct', ref: id, cancel: true, comment: $('mcm').value }, $('cdel'), () => load({ openHist: 1 }));
+}
+
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+load();
+</script>
+</body>
+</html>
