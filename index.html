@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- МЛП · index.html v2 · 09.10.2026 — «Годних» → «Успішних» на екрані кроку й у виправленні запису (T-39) -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -54,6 +55,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
+const PAGE_VERSION = 'index.html v2 · 09.10.2026';
 const API = 'https://script.google.com/macros/s/AKfycbx-JUajnAtVsxaLHDgwRpfzE12g4LUtlf6JnWYAQScAVZ5FCpxzGHSrA5PDESqP80KD/exec';
 window.STATIC_SELF = location.origin + location.pathname;
 const PARAMS = Object.fromEntries(new URLSearchParams(location.search));
@@ -256,7 +258,7 @@ function renderBatch(extra) {
     h += '<div class="card"><div class="mid">Додати крок</div>' +
       '<label>Крок</label><select id="stp">' + b.route.map(s => '<option value="' + esc(s.code) + '"' + (s.avail ? '' : ' disabled') + (s.code === pre ? ' selected' : '') + '>' +
         esc(s.code + ' · ' + s.name) + (s.avail ? ' — доступно ' + s.avail : '') + '</option>').join('') + '</select>' +
-      '<label id="goodLbl">Годних</label>' + numInput('good', '') +
+      '<label id="goodLbl">Успішних</label>' + numInput('good', '') +
       '<div id="scrapWrap"><label>Брак</label>' + numInput('scrap', 0) + '</div>' +
       '<div id="rsn" style="display:none"><label>Причина браку</label><select id="reason">' + opts(S.dict.reasons, '', '— оберіть —') + '</select></div>' +
       '<div id="xf"></div>' +
@@ -320,11 +322,11 @@ function stepChanged() {
   const s = S.batch.route.find(x => x.code === $('stp').value);
   $('good').value = s ? s.avail : ''; $('scrap').value = 0; $('rsn').style.display = 'none';
   $('scrapWrap').style.display = (s && s.code === 'F1' && S.batch.comp) ? 'none' : 'block';
-  $('goodLbl').textContent = (s && s.code === 'F1' && S.batch.comp) ? 'Зібрано двигунів (годних)' : 'Годних';
+  $('goodLbl').textContent = (s && s.code === 'F1' && S.batch.comp) ? 'Зібрано двигунів' : 'Успішних';
   let x = '';
   if (s && s.code === 'F1' && S.batch.comp) {
     x = '<label>Брак статорів</label>' + numInput('x1', 0) + '<label>Брак роторів</label>' + numInput('x2', 0) +
-      '<p class="muted">Зібрано — годні двигуни. Якщо бракований лише статор або лише ротор — пишіть брак тільки цієї деталі: друга лишиться в залишку.</p>';
+      '<p class="muted">Зібрано — успішно зібрані двигуни. Якщо бракований лише статор або лише ротор — пишіть брак тільки цієї деталі: друга лишиться в залишку.</p>';
   }
   if (s && s.extra === 'split') x = '<div class="row"><div><label>На балансування</label>' + numInput('x1', s.avail) + '</div></div><label>Одразу на R7</label>' + numInput('x2', 0);
   if (s && s.extra === 'kv') x = '<label>KV — під який гравіюють</label><select id="kvs">' + opts(S.dict.kv, S.batch.info['KV'], '— оберіть —') + '</select>';
@@ -406,7 +408,7 @@ function cancelRec(id) { confirmBox('Скасувати свій запис ' + 
 function openCorrect(id) {
   const x = S.batch.history.find(h => h.id === id);
   openModal('<div class="card"><div class="mid">Виправити запис ' + esc(x.step) + '</div><div class="muted">' + esc(x.who) + ' · ' + esc(x.time) + ' · було ' + x.good + ' / ' + x.scrap + '</div>' +
-    '<label>' + (x.step === 'F1' && S.batch.comp ? 'Зібрано двигунів' : 'Годних') + '</label>' + numInput('cg', x.good) +
+    '<label>' + (x.step === 'F1' && S.batch.comp ? 'Зібрано двигунів' : 'Успішних') + '</label>' + numInput('cg', x.good) +
     (x.step === 'F1' && S.batch.comp ? '<label>Брак статорів</label>' + numInput('cx1', x.x1) + '<label>Брак роторів</label>' + numInput('cx2', x.x2) : '<label>Брак</label>' + numInput('cs', x.scrap)) +
     '<label>Причина браку</label><select id="cr">' + opts(S.dict.reasons, x.reason, '—') + '</select>' +
     '<label>Причина виправлення (обов\'язково)</label><input type="text" id="mcm">' +
