@@ -63,7 +63,7 @@ var google = { script: { get run() {
     .then(r => r.json()).then(j => j.ok ? ok(j.data) : fail({ message: j.error }))
     .catch(e => fail({ message: 'Немає зв\'язку з сервером. Перевірте інтернет і спробуйте ще раз.' }));
   const o = { withSuccessHandler(f) { ok = f; return o; }, withFailureHandler(f) { fail = f; return o; },
-    apiPage(q) { call('page', q); }, apiAct(q) { call('act', q); } };
+    apiPage(q) { call('page', q); }, apiAct(q) { call('act', q); }, apiApprove(q) { call('approve', q); }, apiCabinet(q) { call('cabinet', q); } };
   return o;
 } } };
 let S = {};           // дані сторінки
@@ -81,6 +81,8 @@ function openModal(html) { $('sheet').innerHTML = html; $('modal').style.display
 function link(q) { return (window.STATIC_SELF || S.webapp || '') + '?' + q; }
 
 function load(extra) {
+  if (PARAMS.approve) return loadApprove();
+  if (PARAMS.cab) return loadCabinet();
   google.script.run.withSuccessHandler(d => { S = d; render(extra || {}); })
     .withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
     .apiPage(Object.assign({}, PARAMS, { code: CODE }));
@@ -124,9 +126,16 @@ function tareVal(id) { const n = $(id + 'n').value; return n ? $(id + 't').value
 // =============================================================== RENDER
 function render(extra) {
   const me = S.me;
-  $('who').innerHTML = me ? esc(me.name) + '<br>' + esc(me.role) + (me.unknown ? ' · ⚠ на перевірці' : '') : '';
+  $('who').innerHTML = me ? esc(me.name) + '<br>' + esc(me.role) + (me.unknown ? ' · ⚠ на перевірці' : '') +
+    (S.perms && S.perms.cabinet ? '<br><a class="lnk" style="color:#cfe0ea" href="' + esc(link('cab=1')) + '">Кабінет ›</a>' : '') : '';
   if (S.error) { $('app').innerHTML = '<div class="card err">' + esc(S.error) + '</div>'; return; }
   if (!me) return renderReg();
+  if (S.pending) {
+    $('app').innerHTML = '<div class="card"><div class="mid">Телефон зареєстровано</div>' +
+      '<p class="muted">Акаунт <b>' + esc(me.email) + '</b> чекає підтвердження тімлідом. Після підтвердження натисніть кнопку нижче.</p>' +
+      '<button class="btn btn2" onclick="load()">Перевірити ще раз</button></div>';
+    return;
+  }
   if (S.poster) return renderPoster();
   if (S.tare && !S.batch) { $('hdrTitle').textContent = S.tare.code; return renderNew(); }
   if (S.batch) { $('hdrTitle').textContent = S.tare ? S.tare.code : ''; return renderBatch(extra); }
@@ -402,6 +411,65 @@ function openCorrect(id) {
   $('mgo').onclick = () => act({ action: 'correct', ref: id, good: $('cg').value, scrap: $('cs') ? $('cs').value : '', x1: $('cx1') ? $('cx1').value : '',
     x2: $('cx2') ? $('cx2').value : '', reason: $('cr').value, comment: $('mcm').value }, $('mgo'), () => load({ openHist: 1 }));
   $('cdel').onclick = () => act({ action: 'correct', ref: id, cancel: true, comment: $('mcm').value }, $('cdel'), () => load({ openHist: 1 }));
+}
+
+// =============================================================== ПІДТВЕРДЖЕННЯ З ЛИСТА
+function loadApprove() {
+  $('hdrTitle').textContent = 'підтвердження';
+  google.script.run.withSuccessHandler(d => {
+    const ok = String(PARAMS.ok) === '1';
+    if (d.status !== 'очікує') { $('app').innerHTML = '<div class="card"><div class="mid">' + esc(d.name) + '</div><p class="muted">' + esc(d.email) + '</p><p>Уже вирішено: <b>' + esc(d.status) + '</b></p></div>'; return; }
+    $('app').innerHTML = '<div class="card"><div class="muted">Новий працівник</div><div class="mid">' + esc(d.name) + '</div><p class="muted">' + esc(d.email) + '</p>' +
+      '<button class="btn ' + (ok ? '' : 'btnr') + '" id="dec">' + (ok ? 'Підтвердити доступ' : 'Відхилити') + '</button>' +
+      '<button class="btn btn2" id="alt">' + (ok ? 'Ні, відхилити' : 'Ні, підтвердити') + '</button><div class="err" id="err"></div></div>';
+    const go = v => { $('dec').disabled = $('alt').disabled = true;
+      google.script.run.withSuccessHandler(r => { $('app').innerHTML = '<div class="card"><div class="mid">' + esc(r.msg || r.status) + '</div><p class="muted">Сторінку можна закрити.</p></div>'; })
+        .withFailureHandler(e => { $('err').textContent = e.message; $('dec').disabled = $('alt').disabled = false; })
+        .apiApprove({ token: PARAMS.approve, ok: v, confirm: true }); };
+    $('dec').onclick = () => go(ok ? 1 : 0); $('alt').onclick = () => go(ok ? 0 : 1);
+  }).withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
+    .apiApprove({ token: PARAMS.approve });
+}
+
+// =============================================================== КАБІНЕТ
+let CAB = null;
+function loadCabinet() {
+  $('hdrTitle').textContent = 'кабінет';
+  google.script.run.withSuccessHandler(d => { CAB = d; S.webapp = S.webapp || ''; renderCabinet(); })
+    .withFailureHandler(e => { $('app').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; })
+    .apiCabinet({ code: CODE });
+}
+function wset(email, op, value) {
+  const payload = { action: 'workerSet', email: email, op: op, value: value || '', code: CODE };
+  google.script.run.withSuccessHandler(r => { toast(r.msg); loadCabinet(); }).withFailureHandler(e => toast(e.message, true)).apiAct(payload);
+}
+function renderCabinet() {
+  const d = CAB;
+  $('who').innerHTML = esc(d.me.name) + '<br>' + esc(d.me.role);
+  const pend = d.people.filter(p => p.active === 'на перевірці');
+  const act = d.people.filter(p => p.active !== 'на перевірці').sort((a, b) => (a.active === 'так' ? 0 : 1) - (b.active === 'так' ? 0 : 1) || String(a.name).localeCompare(b.name));
+  let h = '';
+  h += '<div class="card"><div class="mid">Очікують підтвердження (' + pend.length + ')</div>' + (pend.length ? pend.map(p =>
+    '<div class="li"><div><b>' + esc(p.name || '—') + '</b>' + (p.mine ? ' <span class="pill warn">до вас</span>' : '') + '<br><span class="muted">' + esc(p.email) + '</span></div>' +
+    '<div class="r"><button class="ic" style="background:#DFF3E7" onclick="wset(\'' + esc(p.email) + '\',\'approve\')">✔</button><button class="ic" style="background:#FDE3E1" onclick="wset(\'' + esc(p.email) + '\',\'reject\')">✖</button></div></div>').join('')
+    : '<p class="muted">Нікого</p>') + '</div>';
+  h += '<details open><summary>Партії, що чекають (' + d.waiting.length + ')</summary><div class="list">' + (d.waiting.length ? d.waiting.map(w =>
+    '<div class="li"><div>' + bl(w.batch) + ' · ' + esc(w.step || 'старт') + '<br><span class="muted">' + esc(w.tare || '—') + ' · ' + esc(w.status) + '</span></div><div class="r"><span class="pill bad">' + esc(w.why) + '</span></div></div>').join('')
+    : '<p class="muted">Немає</p>') + '</div></details>';
+  h += '<details><summary>' + (d.big ? 'Усі працівники' : 'Мої люди') + ' (' + act.length + ')</summary><div class="list">' + act.map(p => {
+    const on = p.active === 'так';
+    let ctl = '<button class="ic" onclick="wset(\'' + esc(p.email) + '\',\'' + (on ? 'off' : 'on') + '\')">' + (on ? 'Вимкнути' : 'Увімкнути') + '</button>';
+    if (d.big) ctl += '<br><select style="font-size:14px;padding:6px;margin-top:6px;width:auto" onchange="wset(\'' + esc(p.email) + '\',\'role\',this.value)">' + opts(d.roles, p.role) + '</select>' +
+      '<select style="font-size:14px;padding:6px;margin-top:6px;width:auto" onchange="wset(\'' + esc(p.email) + '\',\'site\',this.value)"><option value="">— місце —</option>' +
+        d.sites.map(x => '<option value="' + esc(x.code) + '"' + (x.code === p.site ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select>';
+    return '<div class="li"><div class="' + (on ? '' : 'x') + '"><b>' + esc(p.name || p.email) + '</b><br><span class="muted">' + esc(p.role) + ' · ' + esc(p.siteName || '—') +
+      (p.last ? ' · останній запис ' + esc(p.last) : '') + '</span></div><div class="r">' + ctl + '</div></div>';
+  }).join('') + '</div></details>';
+  if (d.flagged.length) h += '<details><summary>Записи з невідомих акаунтів (' + d.flagged.length + ')</summary><div class="list">' + d.flagged.map(f =>
+    '<div class="li"><div>' + esc(f.who) + ' · ' + (f.batch ? bl(f.batch) : '') + ' ' + esc(f.step || '') + '</div><div class="r muted">' + esc(f.time) + '</div></div>').join('') + '</div></details>';
+  h += '<div class="card"><div class="mid">Звіти</div><p class="muted">Р-1 випуск за день, Р-2а стан виробництва, Р-3 виробіток — у таблиці MLP_Звіти (зручніше з комп\'ютера).</p>' +
+    (d.reports ? '<a class="btn btn2" style="text-align:center;text-decoration:none" target="_blank" href="' + esc(d.reports) + '">Відкрити MLP_Звіти</a>' : '') + '</div>';
+  $('app').innerHTML = h + '<div style="height:40px"></div>';
 }
 
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
